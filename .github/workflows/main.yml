@@ -49,7 +49,7 @@ jobs:
         cd openwrt
         make defconfig
         [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        make package/passwall/compile -j$(nproc) V=s
+        make package/luci-app-passwall/compile -j$(nproc) V=s
         
     - name: Organize files
       id: organizer
