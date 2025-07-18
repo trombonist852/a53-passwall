@@ -87,7 +87,7 @@ jobs:
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
 
     - name: Archive artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@main
       with:
         name: ${{ env.ARTIFACT_NAME }}
         path: ${{ env.FIRMWARE }}
