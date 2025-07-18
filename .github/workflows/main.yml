@@ -68,4 +68,4 @@ jobs:
       uses: actions/upload-artifact@main
       with:
         name: ${{ env.ARTIFACT_NAME }}
-        path: ${{ env.FIRMWARE_PATH }}
+        path: /openwrt/bin
