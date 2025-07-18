@@ -29,34 +29,12 @@ jobs:
         libreadline-dev libssl-dev libtool llvm lrzsz msmtp ninja-build p7zip p7zip-full patch pkgconf \
         python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion \
         swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
-        
-    - name: Create simulated physical disk
-      run: |
-        mnt_size=$(expr $(df -h /mnt | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 1)
-        root_size=$(expr $(df -h / | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 4)
-        sudo truncate -s "${mnt_size}"G /mnt/mnt.img
-        sudo truncate -s "${root_size}"G /root.img
-        sudo losetup /dev/loop6 /mnt/mnt.img
-        sudo losetup /dev/loop7 /root.img
-        sudo pvcreate /dev/loop6
-        sudo pvcreate /dev/loop7
-        sudo vgcreate github /dev/loop6 /dev/loop7
-        sudo lvcreate -n runner -l 100%FREE github
-        sudo mkfs.xfs /dev/github/runner
-        sudo mkdir -p /${{ env.DIY_WORK }}
-        sudo mount /dev/github/runner /${{ env.DIY_WORK }}
-        sudo chown $USER:$GROUPS /${{ env.DIY_WORK }}
-        df -Th
     
     - name: Download OpenWrt SDK
-      working-directory: /${{ env.DIY_WORK }}
       run: |
         wget ${{ env.SDK_URL }} -O sdk.tar.xz
         mkdir -p openwrt
         tar -xvJf sdk.tar.xz -C openwrt --strip-components=1
-        ln -sf /${{ env.DIY_WORK }}/openwrt ${GITHUB_WORKSPACE}/openwrt
-        cp -Rf ${GITHUB_WORKSPACE}/build ${GITHUB_WORKSPACE}/openwrt/build
-        chmod -R +x ${GITHUB_WORKSPACE}/openwrt
         
     - name: Configure feeds
       run: |
@@ -77,9 +55,9 @@ jobs:
       id: organizer
       if: steps.compile.outputs.status == 'success' && !cancelled()
       run: |
-          mkdir -p ${{ env.DIY_WORK }}/dist/Packages
-          cp -r -f ${{ env.DIY_WORK }}/openwrt/bin/packages/*/*/*.ipk ${{ env.DIY_WORK }}/dist/Packages/
-          cd ${{ env.DIY_WORK }}/dist
+          mkdir -p ${{ github.workspace }}/dist/Packages
+          cp -r -f ${{ github.workspace }}/openwrt/bin/packages/*/*/*.ipk ${{ github.workspace }}/dist/Packages/
+          cd ${{ github.workspace }}/dist
           tar -czf a53.tar.gz Packages
           rm -rf Packages
           sha256sum `ls -1 | sort` > sha256sums
