@@ -76,6 +76,20 @@ jobs:
         swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
         
     # ... [保留原有的SDK下载和配置步骤] ...
+
+    - name: Download OpenWrt SDK
+      run: |
+        wget ${{ env.SDK_URL }} -O sdk.tar.xz
+        mkdir -p openwrt
+        tar -xvJf sdk.tar.xz -C openwrt --strip-components=1
+
+    - name: Configure feeds
+      run: |
+        cd openwrt
+        echo "src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main" >> feeds.conf.default
+        echo "src-git passwall https://github.com/xiaorouji/openwrt-passwall.git;main" >> feeds.conf.default
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
     
     - name: Build PassWall
       run: |
