@@ -131,7 +131,7 @@ jobs:
             - passwall-packages
             - luci-app-passwall
         files: |
-          ${{ github.workspace }}/passwall-artifacts/passwall-${{ env.RELEASE_TAG }}.zip
+          ${{ github.workspace }}/passwall-artifacts/CortexA53-passwall-${{ env.RELEASE_TAG }}.zip
         draft: false
         prerelease: true
       env:
