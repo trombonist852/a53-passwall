@@ -60,7 +60,7 @@ jobs:
         
         echo "name=version::$VERSION" >> $GITHUB_OUTPUT
         echo "name=build_date::$BUILD_DATE" >> $GITHUB_OUTPUT
-        echo "::set-output name=full_version::$FULL_VERSION"echo "{name}={value}" >> $GITHUB_OUTPUT
+        echo "name=full_version::$FULL_VERSION" >> $GITHUB_OUTPUT
         echo "RELEASE_TAG=v$FULL_VERSION" >> $GITHUB_ENV
 
     - name: Setup environment
@@ -116,7 +116,7 @@ jobs:
         
         # 创建压缩包
         cd ${{ github.workspace }}/passwall-artifacts
-        zip -r passwall-${{ env.RELEASE_TAG }}.zip .
+        zip -r CortexA53-Passwall-${{ env.RELEASE_TAG }}.zip .
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
