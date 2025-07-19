@@ -27,10 +27,10 @@ jobs:
         
         # 比较是否有更新
         if [ "$CURRENT_HASH" != "$UPSTREAM_HASH" ]; then
-          echo "::set-output name=has_update::true"
+          echo "name=has_update::true" >> $GITHUB_OUTPUT
           echo "发现PassWall更新: $CURRENT_HASH → $UPSTREAM_HASH"
         else
-          echo "::set-output name=has_update::false"
+          echo "name=has_update::false" >> $GITHUB_OUTPUT
           echo "PassWall已是最新版本"
         fi
 
@@ -58,9 +58,9 @@ jobs:
         echo "编译时间: $BUILD_DATE"
         echo "完整版本: $FULL_VERSION"
         
-        echo "::set-output name=version::$VERSION"
-        echo "::set-output name=build_date::$BUILD_DATE"
-        echo "::set-output name=full_version::$FULL_VERSION"
+        echo "name=version::$VERSION" >> $GITHUB_OUTPUT
+        echo "name=build_date::$BUILD_DATE" >> $GITHUB_OUTPUT
+        echo "::set-output name=full_version::$FULL_VERSION"echo "{name}={value}" >> $GITHUB_OUTPUT
         echo "RELEASE_TAG=v$FULL_VERSION" >> $GITHUB_ENV
 
     - name: Setup environment
