@@ -95,7 +95,8 @@ jobs:
       run: |
         cd openwrt
         make defconfig
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE .config
+        [ -e ${{ github.workspace }}/${{ env.CONFIG_FILE }} ] && \
+        mv ${{ github.workspace }}/${{ env.CONFIG_FILE }} .config
         
         # 只编译PassWall相关包
         make package/luci-app-passwall/compile -j$(nproc) V=s
@@ -122,7 +123,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ env.RELEASE_TAG }}
-        name: PassWall ${{ env.RELEASE_TAG }}
+        name: CortexA53-PassWall ${{ env.RELEASE_TAG }}
         body: |
           ### PassWall 自动构建版本
           - **上游版本**: ${{ steps.version.outputs.version }}
@@ -131,7 +132,7 @@ jobs:
             - passwall-packages
             - luci-app-passwall
         files: |
-          ${{ github.workspace }}/passwall-artifacts/CortexA53-passwall-${{ env.RELEASE_TAG }}.zip
+          ${{ github.workspace }}/passwall-artifacts/CortexA53-Passwall-${{ env.RELEASE_TAG }}.zip
         draft: false
         prerelease: true
       env:
