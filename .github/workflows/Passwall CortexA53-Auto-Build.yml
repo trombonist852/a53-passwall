@@ -1,4 +1,4 @@
-name: PassWall Auto-Build
+name: cortexa53-PassWall Auto-Build
 
 on:
   push:
