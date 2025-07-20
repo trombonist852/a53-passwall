@@ -1,4 +1,4 @@
-name: PassWall Auto-Build
+name: x86-PassWall Auto-Build
 
 on:
   push:
