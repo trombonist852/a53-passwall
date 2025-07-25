@@ -1,0 +1,156 @@
+name: cortexa53-PassWall Auto-Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    # 每天北京时间8点检查更新
+    - cron: '0 0 * * *'
+
+env:
+  SDK_URL: https://downloads.openwrt.org/releases/21.02.3/targets/mvebu/cortexa53/openwrt-sdk-21.02.3-mvebu-cortexa53_gcc-8.4.0_musl.Linux-x86_64.tar.xz
+  CONFIG_FILE: config/a53.config
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    outputs:
+      has_update: ${{ steps.check.outputs.has_update }}
+    steps:
+    - name: Check for PassWall updates
+      id: check
+      run: |
+        # 获取当前提交和上游最新提交
+        CURRENT_HASH=$(git ls-remote https://github.com/xiaorouji/openwrt-passwall.git HEAD | cut -f1)
+        UPSTREAM_HASH=$(curl -s https://api.github.com/repos/xiaorouji/openwrt-passwall/commits/main | jq -r '.sha')
+        
+        # 比较是否有更新
+        if [ "$CURRENT_HASH" != "$UPSTREAM_HASH" ]; then
+          echo "has_update=true" >> $GITHUB_OUTPUT
+          echo "发现PassWall更新: $CURRENT_HASH → $UPSTREAM_HASH"
+        else
+          echo "has_update=false" >> $GITHUB_OUTPUT
+          echo "PassWall已是最新版本"
+        fi
+
+  build:
+    needs: check-updates
+    if: ${{ needs.check-updates.outputs.has_update == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Get version info
+      id: version
+      run: |
+        # 从PassWall Makefile获取版本号
+        VERSION=$(curl -s https://raw.githubusercontent.com/xiaorouji/openwrt-passwall/main/luci-app-passwall/Makefile | grep 'PKG_VERSION:=' | cut -d= -f2 | tr -d ' ')
+        
+        # 生成构建时间 (北京时间)
+        BUILD_DATE=$(TZ='Asia/Shanghai' date +'%Y.%m.%d-%H%M')
+        
+        # 组合完整版本号
+        FULL_VERSION="${VERSION}.${BUILD_DATE}"
+        
+        echo "PassWall版本: $VERSION"
+        echo "编译时间: $BUILD_DATE"
+        echo "完整版本: $FULL_VERSION"
+        
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
+        echo "full_version=$FULL_VERSION" >> $GITHUB_OUTPUT
+        echo "RELEASE_TAG=v$FULL_VERSION" >> $GITHUB_ENV
+
+    - name: Setup environment
+      run: |
+        sudo apt update -y
+        sudo apt full-upgrade -y
+        sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+        bzip2 ccache clang cmake cpio curl device-tree-compiler flex gawk gcc-multilib g++-multilib gettext \
+        genisoimage git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev \
+        libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev \
+        libreadline-dev libssl-dev libtool llvm lrzsz msmtp ninja-build p7zip p7zip-full patch pkgconf \
+        python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion \
+        swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+        
+    - name: Download OpenWrt SDK
+      run: |
+        wget ${{ env.SDK_URL }} -O sdk.tar.xz
+        mkdir -p openwrt
+        tar -xvJf sdk.tar.xz -C openwrt --strip-components=1
+
+    - name: Configure feeds
+      run: |
+        cd openwrt
+        echo "src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main" >> feeds.conf.default
+        echo "src-git passwall https://github.com/xiaorouji/openwrt-passwall.git;main" >> feeds.conf.default
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+    
+    - name: Build PassWall
+      run: |
+        cd openwrt
+        make defconfig
+        [ -e ${{ github.workspace }}/${{ env.CONFIG_FILE }} ] && \
+        mv ${{ github.workspace }}/${{ env.CONFIG_FILE }} .config
+        
+        # 只编译PassWall相关包
+        make package/luci-app-passwall/compile -j$(nproc) V=s
+
+    - name: Collect PassWall artifacts
+      run: |
+        # 创建专用目录存放PassWall文件
+        mkdir -p ${{ github.workspace }}/passwall-artifacts
+        
+        # 复制核心文件
+        cp ${{ github.workspace }}/openwrt/bin/packages/*/passwall/*.ipk ${{ github.workspace }}/passwall-artifacts/
+        cp ${{ github.workspace }}/openwrt/bin/packages/*/passwall_packages/*.ipk ${{ github.workspace }}/passwall-artifacts/
+        
+        # 创建版本信息文件
+        echo "PassWall Version: ${{ steps.version.outputs.version }}" > ${{ github.workspace }}/passwall-artifacts/version.txt
+        echo "Build Date: ${{ steps.version.outputs.build_date }}" >> ${{ github.workspace }}/passwall-artifacts/version.txt
+        echo "Full Version: ${{ steps.version.outputs.full_version }}" >> ${{ github.workspace }}/passwall-artifacts/version.txt
+        
+        # 创建压缩包
+        cd ${{ github.workspace }}/passwall-artifacts
+        zip -r CortexA53-Passwall-${{ env.RELEASE_TAG }}.zip .
+
+    # 使用 Release 功能发布构建成果
+    - name: Create Release and Upload Assets
+      uses: actions/create-release@v1
+      id: create_release
+      with:
+        # 使用动态生成的标签
+        tag_name: ${{ env.RELEASE_TAG }}
+        # 发布名称包含版本号
+        release_name: "CortexA53-PassWall ${{ env.RELEASE_TAG }}"
+        # 发布内容模板
+        body: |
+          ### 🚀 PassWall 自动构建版本
+          - **上游版本**: ${{ steps.version.outputs.version }}
+          - **编译时间**: ${{ steps.version.outputs.build_date }} (北京时间)
+          - **设备架构**: Cortex A53
+          - **包含组件**:
+            - luci-app-passwall
+            - passwall-packages
+          - **构建触发方式**: ${{ github.event_name }}
+        # 设置为预发布版本
+        draft: false
+        prerelease: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      with:
+        # 使用上一步创建的Release ID
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        # 要上传的构建产物
+        asset_path: ${{ github.workspace }}/passwall-artifacts/CortexA53-Passwall-${{ env.RELEASE_TAG }}.zip
+        # 在Release中显示的文件名
+        asset_name: CortexA53-Passwall-${{ env.RELEASE_TAG }}.zip
+        asset_content_type: application/zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
